@@ -1,5 +1,6 @@
 #include <bits/stdc++.h>
 #include <cmath>
+#include "1905105_classes.h"
 
 #ifdef __linux__
 #include <GL/glut.h>
@@ -10,53 +11,21 @@
 
 using namespace std;
 
-struct Points{
-    double x, y, z;
-    Points(double x, double y, double z){
-        this->x = x;
-        this->y = y;
-        this->z = z;
-    }
-};
-
-Points operator+(Points a, Points b){
-    return Points(a.x+b.x, a.y+b.y, a.z+b.z);
-}
-
-Points operator-(Points a, Points b){
-    return Points(a.x-b.x, a.y-b.y, a.z-b.z);
-}
-
-Points operator*(Points a, Points b){
-    return Points(a.x*b.x, a.y*b.y, a.z*b.z);
-}
-
-Points operator|(Points a, Points b){
-    return Points(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
-}
-
-Points operator*(Points a, double b){
-    return Points(a.x*b, a.y*b, a.z*b);
-}
-
-Points Rodrigues(Points a, Points b, double theta){
-    Points c = a*cos(theta) + (b|a)*sin(theta) + ((a*b)*b)*(1-cos(theta));
-    return c;
-}
-
-Points Normalize(Points a){
-    double r = sqrt(a.x*a.x + a.y*a.y + a.z*a.z);
-    return Points(a.x/r, a.y/r, a.z/r);
-}
-
-Points eye(10, 10, 10);
-Points look(-1.0/sqrt(3.0), -1.0/sqrt(3.0), -1.0/sqrt(3.0));
-Points up(-1.0/sqrt(2.0), 1.0/sqrt(2.0), 0);
-Points right_((1.0/sqrt(6.0)), (1.0/sqrt(6.0)), (-2.0/sqrt(6.0)));
+Points eye(85, 85, 85);
+Points look(-0.57735, -0.57735, -0.57735);
+Points up(-0.389334, -0.426875, 0.816209);
+Points right_(-0.717695, 0.696021, 0.0216739);
 // double objAngle = 0;
 double Phi = 45;
 double lambda = 45;
 double x,y;
+int img_width = 0;
+int n_recursion = 0;
+ 
+vector<Sphere> spheres;
+vector<Triangle> triangles;
+vector<PointLight> pointLights;
+vector<SpotLight> spotLights;
 
 void drawCheckerBox(double a, int color = 0) {
   glBegin(GL_QUADS);
@@ -96,7 +65,16 @@ void display(){
     glLoadIdentity();
 
     gluLookAt(eye.x,eye.y,eye.z, look.x+eye.x,look.y+eye.y,look.z+eye.z, up.x,up.y,up.z);
-    drawCheckers(1.0);
+    drawCheckers(10.0);
+    for(Sphere s: spheres){
+        s.draw();
+    }
+    for(Triangle t: triangles){
+        t.draw();
+    }
+    for(PointLight p: pointLights){
+        p.draw();
+    }
     glutSwapBuffers();
 }
 
@@ -104,7 +82,7 @@ void init(){
     glClearColor(0,0,0,0);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(45, 1, 0.1, 1000);
+    gluPerspective(80, 1, 1, 1000);
 }
 
 void specialKeyListener(int key, int x, int y){
@@ -135,6 +113,8 @@ void specialKeyListener(int key, int x, int y){
 
 void keyboardListener(unsigned char key, int x, int y){
     cout << "look.x: " << look.x << " look.y: " << look.y << " look.z: " << look.z << "\n";
+    cout << "up.x: " << up.x << " up.y: " << up.y << " up.z: " << up.z << "\n";
+    cout << "right_.x: " << right_.x << " right_.y: " << right_.y << " right_.z: " << right_.z << "\n";
     switch(key){
         case '1':
             look = Rodrigues(look, up, 0.1);
@@ -177,7 +157,68 @@ void keyboardListener(unsigned char key, int x, int y){
     }
 }
 
+void loadData(){
+    ifstream file;
+    file.open("scene.txt");
+    if(!file){
+        cout << "File not found\n";
+        return;
+    }
+    int n_objects, n_pointlights, n_spotlights;
+
+    file >> img_width;
+    file >> n_recursion;
+
+    file >> n_objects;
+    for(int i=0; i<n_objects; i++){
+        string type;
+        file >> type;
+        if(type == "sphere"){
+            Sphere s;
+            cout << "YES\n";
+            file >> s.referencePoint.x >> s.referencePoint.y >> s.referencePoint.z;
+            file >> s.length;
+            file >> s.color[0] >> s.color[1] >> s.color[2];
+            file >> s.coEfficients[0] >> s.coEfficients[1] >> s.coEfficients[2] >> s.coEfficients[3];
+            file >> s.shine;
+            spheres.push_back(s);
+        }
+        else if(type == "triangle"){
+            cout << "YES2\n";
+            Triangle t;
+            file >> t.a.x >> t.a.y >> t.a.z;
+            file >> t.b.x >> t.b.y >> t.b.z;
+            file >> t.c.x >> t.c.y >> t.c.z;
+            file >> t.color[0] >> t.color[1] >> t.color[2];
+            file >> t.coEfficients[0] >> t.coEfficients[1] >> t.coEfficients[2] >> t.coEfficients[3];
+            file >> t.shine;
+            triangles.push_back(t);
+        }
+    }
+    
+    file >> n_pointlights;
+    for(int i=0; i<n_pointlights; i++){
+        PointLight p;
+        file >> p.position.x >> p.position.y >> p.position.z;
+        file >> p.color[0] >> p.color[1] >> p.color[2];
+        pointLights.push_back(p);
+    }
+    
+    file >> n_spotlights;
+    for(int i=0; i<n_spotlights; i++){
+        SpotLight s;
+        file >> s.pl.position.x >> s.pl.position.y >> s.pl.position.z;
+        file >> s.pl.color[0] >> s.pl.color[1] >> s.pl.color[2];
+        file >> s.direction.x >> s.direction.y >> s.direction.z;
+        file >> s.angle;
+        spotLights.push_back(s);
+    }
+
+    file.close();
+}
+
 int main(int argc, char** argv){
+    loadData();
     glutInit(&argc, argv);
     glutInitWindowPosition(100, 100);   
     glutInitWindowSize(640, 640);

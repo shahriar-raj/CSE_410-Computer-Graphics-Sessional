@@ -150,3 +150,4 @@ extern vector<Sphere> spheres;
 extern vector<Triangle> triangles;
 extern vector<PointLight> pointLights;
 extern vector<SpotLight> spotLights;
+extern vector<Object*> objects;

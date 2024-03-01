@@ -26,6 +26,7 @@ vector<Sphere> spheres;
 vector<Triangle> triangles;
 vector<PointLight> pointLights;
 vector<SpotLight> spotLights;
+vector<Object*> objects;
 
 void drawCheckerBox(double a, int color = 0) {
   glBegin(GL_QUADS);
@@ -66,12 +67,17 @@ void display(){
 
     gluLookAt(eye.x,eye.y,eye.z, look.x+eye.x,look.y+eye.y,look.z+eye.z, up.x,up.y,up.z);
     drawCheckers(10.0);
-    for(Sphere s: spheres){
-        s.draw();
+    // for(Sphere s: spheres){
+    //     s.draw();
+    // }
+    // for(Triangle t: triangles){
+    //     t.draw();
+    // }
+    for(Object* o: objects){
+        o->draw();
+        cout << "YES\n";
     }
-    for(Triangle t: triangles){
-        t.draw();
-    }
+
     for(PointLight p: pointLights){
         p.draw();
     }
@@ -86,7 +92,7 @@ void init(){
 }
 
 void specialKeyListener(int key, int x, int y){
-    cout << "eye.x: " << eye.x << " eye.y: " << eye.y << " eye.z: " << eye.z << "\n";
+    // cout << "eye.x: " << eye.x << " eye.y: " << eye.y << " eye.z: " << eye.z << "\n";
     switch(key){
         case GLUT_KEY_DOWN:
             eye = eye - look;
@@ -112,9 +118,9 @@ void specialKeyListener(int key, int x, int y){
 }
 
 void keyboardListener(unsigned char key, int x, int y){
-    cout << "look.x: " << look.x << " look.y: " << look.y << " look.z: " << look.z << "\n";
-    cout << "up.x: " << up.x << " up.y: " << up.y << " up.z: " << up.z << "\n";
-    cout << "right_.x: " << right_.x << " right_.y: " << right_.y << " right_.z: " << right_.z << "\n";
+    // cout << "look.x: " << look.x << " look.y: " << look.y << " look.z: " << look.z << "\n";
+    // cout << "up.x: " << up.x << " up.y: " << up.y << " up.z: " << up.z << "\n";
+    // cout << "right_.x: " << right_.x << " right_.y: " << right_.y << " right_.z: " << right_.z << "\n";
     switch(key){
         case '1':
             look = Rodrigues(look, up, 0.1);
@@ -173,26 +179,57 @@ void loadData(){
     for(int i=0; i<n_objects; i++){
         string type;
         file >> type;
+        double color[3];
+        double coEfficients[4];
+        int shine;
         if(type == "sphere"){
-            Sphere s;
-            cout << "YES\n";
-            file >> s.referencePoint.x >> s.referencePoint.y >> s.referencePoint.z;
-            file >> s.length;
-            file >> s.color[0] >> s.color[1] >> s.color[2];
-            file >> s.coEfficients[0] >> s.coEfficients[1] >> s.coEfficients[2] >> s.coEfficients[3];
-            file >> s.shine;
-            spheres.push_back(s);
+            // Sphere s;
+            // cout << "YES\n";
+            // file >> s.referencePoint.x >> s.referencePoint.y >> s.referencePoint.z;
+            // file >> s.length;
+            // file >> s.color[0] >> s.color[1] >> s.color[2];
+            // file >> s.coEfficients[0] >> s.coEfficients[1] >> s.coEfficients[2] >> s.coEfficients[3];
+            // file >> s.shine;
+            // spheres.push_back(s);
+            Object *s;
+            Points referencePoint;
+            double length;
+            file >> referencePoint.x >> referencePoint.y >> referencePoint.z;
+            file >> length;
+            file >> color[0] >> color[1] >> color[2];
+            file >> coEfficients[0] >> coEfficients[1] >> coEfficients[2] >> coEfficients[3];
+            file >> shine;
+            s = new Sphere(referencePoint, length);
+            s->setColor(color[0], color[1], color[2]);
+            s->setCoEfficients(coEfficients[0], coEfficients[1], coEfficients[2], coEfficients[3]);
+            s->setShine(shine);
+            objects.push_back(s);
         }
         else if(type == "triangle"){
-            cout << "YES2\n";
-            Triangle t;
-            file >> t.a.x >> t.a.y >> t.a.z;
-            file >> t.b.x >> t.b.y >> t.b.z;
-            file >> t.c.x >> t.c.y >> t.c.z;
-            file >> t.color[0] >> t.color[1] >> t.color[2];
-            file >> t.coEfficients[0] >> t.coEfficients[1] >> t.coEfficients[2] >> t.coEfficients[3];
-            file >> t.shine;
-            triangles.push_back(t);
+            // cout << "YES2\n";
+            // Triangle t;
+            // file >> t.a.x >> t.a.y >> t.a.z;
+            // file >> t.b.x >> t.b.y >> t.b.z;
+            // file >> t.c.x >> t.c.y >> t.c.z;
+            // file >> t.color[0] >> t.color[1] >> t.color[2];
+            // file >> t.coEfficients[0] >> t.coEfficients[1] >> t.coEfficients[2] >> t.coEfficients[3];
+            // file >> t.shine;
+            // triangles.push_back(t); 
+            // If we don't declare as pointer, the draw function of the derived class won't be called (IDK Why??)
+
+            Object *t;
+            Points a, b, c;
+            file >> a.x >> a.y >> a.z;
+            file >> b.x >> b.y >> b.z;
+            file >> c.x >> c.y >> c.z;
+            file >> color[0] >> color[1] >> color[2];
+            file >> coEfficients[0] >> coEfficients[1] >> coEfficients[2] >> coEfficients[3];
+            file >> shine;
+            t = new Triangle(a, b, c);
+            t->setColor(color[0], color[1], color[2]);
+            t->setCoEfficients(coEfficients[0], coEfficients[1], coEfficients[2], coEfficients[3]);
+            t->setShine(shine);
+            objects.push_back(t);
         }
     }
     

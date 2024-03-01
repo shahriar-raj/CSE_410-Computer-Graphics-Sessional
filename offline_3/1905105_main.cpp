@@ -1,6 +1,7 @@
 #include <bits/stdc++.h>
 #include <cmath>
 #include "1905105_classes.h"
+#include "bitmap_image.hpp"
 
 #ifdef __linux__
 #include <GL/glut.h>
@@ -21,9 +22,11 @@ double lambda = 45;
 double x,y;
 int img_width = 0;
 int n_recursion = 0;
- 
-vector<Sphere> spheres;
-vector<Triangle> triangles;
+int WINDOW_WIDTH = 640;
+int WINDOW_HEIGHT = 640;
+int view_angle = 60;
+int img_count = 1;
+
 vector<PointLight> pointLights;
 vector<SpotLight> spotLights;
 vector<Object*> objects;
@@ -55,6 +58,72 @@ void drawCheckers(double a) {
   }
 }
 
+void capture(){
+    bitmap_image image(img_width, img_width);
+
+    for(int i=0; i<img_width; i++){
+        for(int j=0; j<img_width; j++){
+           image.set_pixel(i, j, 0, 0, 0);
+        }
+    }
+    double plane_distance = (WINDOW_WIDTH/2)/tan((view_angle/2)*(M_PI/180));
+    Points topleft = eye + look*plane_distance - right_*(WINDOW_WIDTH/2) + up*(WINDOW_WIDTH/2);
+    double du = (double)WINDOW_WIDTH/img_width;
+    double dv = (double)WINDOW_HEIGHT/img_width;
+    topleft = topleft + right_*(du/2) - up*(dv/2);
+
+    int nearest;
+    double t, t_min;
+    Points current_pixel;
+
+    for(int i=0; i<img_width; i++){
+        for(int j=0; j<img_width; j++){
+            current_pixel = topleft + right_*i*du - up*j*dv;
+            t_min = 999999;
+            nearest = -1;
+
+            Ray ray(eye, (current_pixel-eye));
+            Color color(0, 0, 0);
+
+            for(int k=0; k<objects.size(); k++){
+                t = objects[k]->intersect(ray, color, 0);
+                if(t>0 && t<t_min){
+                    t_min = t;
+                    nearest = k;
+                    cout << "YES " << t_min << "\n";
+                }
+            }
+
+            if(nearest != -1){
+                t_min = objects[nearest]->intersect(ray, color, 1);
+            }
+
+            color.Normalize();    
+            image.set_pixel(i, j, color.r*255, color.g*255, color.b*255);
+        }
+    }
+    string filename = "out_1"+to_string(img_count++)+".bmp";
+    image.save_image(filename);
+    cout << "Image " << filename << " Captured\n";
+}
+
+void axes(){
+    glBegin(GL_LINES);{
+        glColor3f(0, 1.0, 0);
+        glVertex3f(0,100,0);
+        glVertex3f(0,-100,0);
+
+        glColor3f(1.0, 0, 0);
+        glVertex3f(100,0,0);
+        glVertex3f(-100,0,0);
+
+        glColor3f(1.0, 0, 0);
+        glVertex3f(0,0,100);
+        glVertex3f(0,0,-100);
+    }glEnd();
+
+}
+
 void idle(){
     glutPostRedisplay();
 }
@@ -66,7 +135,8 @@ void display(){
     glLoadIdentity();
 
     gluLookAt(eye.x,eye.y,eye.z, look.x+eye.x,look.y+eye.y,look.z+eye.z, up.x,up.y,up.z);
-    drawCheckers(10.0);
+    axes();
+    // drawCheckers(10.0);
     // for(Sphere s: spheres){
     //     s.draw();
     // }
@@ -75,7 +145,6 @@ void display(){
     // }
     for(Object* o: objects){
         o->draw();
-        cout << "YES\n";
     }
 
     for(PointLight p: pointLights){
@@ -88,7 +157,7 @@ void init(){
     glClearColor(0,0,0,0);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(80, 1, 1, 1000);
+    gluPerspective(60, 1, 1, 1000);
 }
 
 void specialKeyListener(int key, int x, int y){
@@ -158,6 +227,9 @@ void keyboardListener(unsigned char key, int x, int y){
             up = right_|look;
             up = Normalize(up);
             break;
+        case '0':
+            capture();
+            break;
         default:
             break;
     }
@@ -172,8 +244,8 @@ void loadData(){
     }
     int n_objects, n_pointlights, n_spotlights;
 
-    file >> img_width;
     file >> n_recursion;
+    file >> img_width;
 
     file >> n_objects;
     for(int i=0; i<n_objects; i++){
@@ -183,6 +255,7 @@ void loadData(){
         double coEfficients[4];
         int shine;
         if(type == "sphere"){
+            cout<< "YES\n";
             // Sphere s;
             // cout << "YES\n";
             // file >> s.referencePoint.x >> s.referencePoint.y >> s.referencePoint.z;
@@ -206,7 +279,7 @@ void loadData(){
             objects.push_back(s);
         }
         else if(type == "triangle"){
-            // cout << "YES2\n";
+            cout << "YES2\n";
             // Triangle t;
             // file >> t.a.x >> t.a.y >> t.a.z;
             // file >> t.b.x >> t.b.y >> t.b.z;
@@ -231,13 +304,32 @@ void loadData(){
             t->setShine(shine);
             objects.push_back(t);
         }
+        else if(type == "general")
+        {
+            cout << "YES3\n";
+            Object *g;
+            double A, B, C, D, E, F, G, H, I, J, length, width, height;
+            Points referencePoint;
+            file >> A >> B >> C >> D >> E >> F >> G >> H >> I >> J;
+            file >> referencePoint.x >> referencePoint.y >> referencePoint.z;
+            file >> length >> width >> height;
+            file >> color[0] >> color[1] >> color[2];
+            file >> coEfficients[0] >> coEfficients[1] >> coEfficients[2] >> coEfficients[3];
+            file >> shine;
+            g = new General(A, B, C, D, E, F, G, H, I, J, referencePoint, length, width, height);
+            g->setColor(color[0], color[1], color[2]);
+            g->setCoEfficients(coEfficients[0], coEfficients[1], coEfficients[2], coEfficients[3]);
+            g->setShine(shine);
+            objects.push_back(g);
+        }
+        
     }
     
     file >> n_pointlights;
     for(int i=0; i<n_pointlights; i++){
         PointLight p;
         file >> p.position.x >> p.position.y >> p.position.z;
-        file >> p.color[0] >> p.color[1] >> p.color[2];
+        file >> p.color.r >> p.color.g >> p.color.b;
         pointLights.push_back(p);
     }
     
@@ -245,13 +337,18 @@ void loadData(){
     for(int i=0; i<n_spotlights; i++){
         SpotLight s;
         file >> s.pl.position.x >> s.pl.position.y >> s.pl.position.z;
-        file >> s.pl.color[0] >> s.pl.color[1] >> s.pl.color[2];
+        file >> s.pl.color.r >> s.pl.color.g >> s.pl.color.b;
         file >> s.direction.x >> s.direction.y >> s.direction.z;
         file >> s.angle;
         spotLights.push_back(s);
     }
 
     file.close();
+    Object *f;
+    f = new Floor(1000, 20);
+    f->setCoEfficients(0.4, 0.4, 0.4, 0.2);
+    f->setShine(5);
+    objects.push_back(f);
 }
 
 int main(int argc, char** argv){

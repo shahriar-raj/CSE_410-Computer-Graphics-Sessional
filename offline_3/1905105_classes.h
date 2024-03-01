@@ -493,9 +493,21 @@ public:
 
     bool isWithinRange(Points point)
     {
-        if (point.x >= referencePoint.x && point.x <= referencePoint.x + width && point.y >= referencePoint.y && point.y <= referencePoint.y + height && point.z >= referencePoint.z && point.z <= referencePoint.z + length)
-            return true;
-        return false;
+        if(width!=0)
+        {
+            if(point.y < referencePoint.y || point.y > referencePoint.y + width) return false;
+        }
+
+        if(height!=0)
+        {
+            if(point.z < referencePoint.z || point.z > referencePoint.z + height) return false;
+        }
+
+        if(length!=0)
+        {
+            if(point.x < referencePoint.x || point.x > referencePoint.x + length) return false;
+        }
+        return true;
     }
 
     Points getNormal(Points &p) override{
@@ -512,14 +524,14 @@ public:
         double c = A*ray.start.x*ray.start.x + B*ray.start.y*ray.start.y + C*ray.start.z*ray.start.z + D*ray.start.x*ray.start.y + E*ray.start.x*ray.start.z + F*ray.start.y*ray.start.z + G*ray.start.x + H*ray.start.y + I*ray.start.z + J;
         double d = b*b - 4*a*c;
         if(d<0) return -1;
-        double t1 = (-b + sqrt(d))/(2.0*a);
-        double t2 = (-b - sqrt(d))/(2.0*a);
+        double t1 = (-b - sqrt(d))/(2.0*a);
+        double t2 = (-b + sqrt(d))/(2.0*a);
         Points p1 = ray.start + ray.dir*t1;
         Points p2 = ray.start + ray.dir*t2;
         if(t1<0 && t2<0) return -1;
-        if(t1<0 && isWithinRange(p2)) return t2;
-        if(t2<0 && isWithinRange(p1)) return t1;
-        return min(t1, t2);
+        if(t1>0 && isWithinRange(p1)) return t1;
+        if(t2>0 && isWithinRange(p2)) return t2;
+        return -1;
     }
 
 };

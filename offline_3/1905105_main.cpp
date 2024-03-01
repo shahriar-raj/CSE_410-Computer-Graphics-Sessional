@@ -102,7 +102,7 @@ void capture(){
             image.set_pixel(i, j, color.r*255, color.g*255, color.b*255);
         }
     }
-    string filename = "out_1"+to_string(img_count++)+".bmp";
+    string filename = "Output_1"+to_string(img_count++)+".bmp";
     image.save_image(filename);
     cout << "Image " << filename << " Captured\n";
 }
@@ -135,7 +135,7 @@ void display(){
     glLoadIdentity();
 
     gluLookAt(eye.x,eye.y,eye.z, look.x+eye.x,look.y+eye.y,look.z+eye.z, up.x,up.y,up.z);
-    axes();
+    //axes();
     // drawCheckers(10.0);
     // for(Sphere s: spheres){
     //     s.draw();
@@ -357,7 +357,7 @@ int main(int argc, char** argv){
     glutInitWindowPosition(100, 100);   
     glutInitWindowSize(640, 640);
     glutInitDisplayMode(GLUT_RGB | GLUT_DOUBLE | GLUT_DEPTH);
-    glutCreateWindow("1905105_Camera_Working");
+    glutCreateWindow("1905105_Ray_Tracing");
     init();
     glutDisplayFunc(display);
     glutIdleFunc(idle);
@@ -365,5 +365,11 @@ int main(int argc, char** argv){
     glutKeyboardFunc(keyboardListener);
     // glutTimerFunc(1000, Timer, 0);
     glutMainLoop();
+    for (Object* o : objects) {
+        delete o;
+    }
+    vector <Object*> ().swap(objects);
+    vector <PointLight> ().swap(pointLights);
+    vector <SpotLight> ().swap(spotLights);
     return 0;
 }

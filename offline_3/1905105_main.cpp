@@ -90,7 +90,7 @@ void capture(){
                 if(t>0 && t<t_min){
                     t_min = t;
                     nearest = k;
-                    cout << "YES " << t_min << "\n";
+                    // cout << "YES " << t_min << "\n";
                 }
             }
 

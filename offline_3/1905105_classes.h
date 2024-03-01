@@ -17,6 +17,7 @@ class General;
 class PointLight;
 class SpotLight;
 class Color;
+//Declaring All the classes at first
 
 struct Points{
     double x, y, z;
@@ -27,27 +28,34 @@ struct Points{
         this->z = z;
     }
 };
+//Points work as the Vector3D specified in the specs
 
+//Addition of Vectors
 Points operator+(Points a, Points b){
     return Points(a.x+b.x, a.y+b.y, a.z+b.z);
 }
 
+//Subtraction of Vectors
 Points operator-(Points a, Points b){
     return Points(a.x-b.x, a.y-b.y, a.z-b.z);
 }
 
+//Dot Product of Vectors which returns a scalar value
 double operator*(Points a, Points b){
-    return (a.x*b.x+a.y*b.y+a.z*b.z);
+    return (a.x*b.x+a.y*b.y+a.z*b.z); // I was returning a Points class and I don't know how that was working
 }
 
+//Scalar Product Of Vectors. Returns a vector (Points) object
 Points operator|(Points a, Points b){
     return Points(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z, a.x*b.y-a.y*b.x);
 }
 
+//Scalar Multiplication (I mean Multiplication of Points with a scalar value)
 Points operator*(Points a, double b){
     return Points(a.x*b, a.y*b, a.z*b);
 }
 
+//Rodrigues Formula
 Points Rodrigues(Points a, Points b, double theta){
     Points c = a*cos(theta) + (b|a)*sin(theta) + (b*(a*b))*(1-cos(theta));
     return c;
@@ -58,7 +66,7 @@ Points Normalize(Points a){
     return Points(a.x/r, a.y/r, a.z/r);
 }
 
-class Color{
+class Color{// At First I didn't want to use color as a clas. But It was getting troublesome to maintain
 public:
     double r, g, b;
     Color(){};
@@ -79,10 +87,19 @@ public:
         return Color(r*a, g*a, b*a);
     }
 
+    Color operator*(Color c){
+        return Color(r*c.r, g*c.g, b*c.b);
+    }
+
     Color operator+(Color c){
         return Color(r+c.r, g+c.g, b+c.b);
     }
 
+    Color operator+(double a){
+        return Color(r+a, g+a, b+a);
+    }
+
+    // Normalizing the color so that it doesn't exceed 1 also doesn't go below 0
     void Normalize()
 	{
 		if (r < 0)
@@ -100,6 +117,11 @@ public:
     }
 };
 
+extern vector<PointLight> pointLights;
+extern vector<SpotLight> spotLights;
+extern vector<Object*> objects;
+extern int n_recursion;
+// Ray . The Parametric equation : R = R_o + t*R_d
 class Ray{
 public:
     Points start, dir;
@@ -113,6 +135,36 @@ public:
     Ray(const Ray &r){
         this->start = r.start;
         this->dir = r.dir;
+    }
+};
+
+class PointLight{
+public:
+    Points position;
+    Color color;
+    PointLight(){};
+    void draw(){
+        glPushMatrix();
+        glTranslated(position.x, position.y, position.z);
+        glColor3f(color.r, color.g, color.b);
+        glutSolidSphere(1, 100, 100);
+        glPopMatrix();
+    }
+};
+
+class SpotLight{
+public:
+    PointLight pl;
+    Points direction;
+    double angle;
+    SpotLight(){};
+    void draw(){
+        glPushMatrix();
+        glTranslated(pl.position.x, pl.position.y, pl.position.z);
+        glColor3f(pl.color.r, pl.color.g, pl.color.b);
+        glutSolidSphere(0.5, 100, 100);
+        glPopMatrix();
+
     }
 };
 
@@ -150,11 +202,11 @@ public:
 	}
 
     virtual Color getColor(Points &p){
-        return color;
+        return color; // p is  the intersection point
     }
 
     virtual Points getNormal(Points &p){
-        return Points(0, 0, 0);
+        return Points(0, 0, 0); // p is  the intersection point
     }
 
     double intersect (Ray &r, Color &color, int level) {
@@ -166,6 +218,103 @@ public:
         color = getColor(intersectionPoint) * coEfficients[0];
         color.Normalize();
         // cout << "Color: " << color.r << " " << color.g << " " << color.b << endl;
+        for (PointLight pl: pointLights) {
+            Points L = pl.position - intersectionPoint;
+            double t;
+            L = Normalize(L);
+
+            Points  lRayStart = intersectionPoint + L*0.0001;
+            Ray lRay(lRayStart, L);
+            bool isInShadow = false;
+            double t_min_og = 999999;
+            Color lColor;
+
+            for (Object* o: objects) {
+                t = o->intersect(lRay, lColor, 0);
+                if (t > 0 && t < t_min_og) {
+                    t_min_og = t;
+                }
+            }
+            
+            if(t_min < t_min_og)
+            {
+                Points R = normal * (2 * (normal * L)) - L;
+                R = Normalize(R);
+
+                double lambertValue = max((normal*L), 0.0);
+                double phongValue = max(pow((R * r.dir), shine), 0.0);
+                
+                color = color + this->getColor(intersectionPoint) * pl.color * this->coEfficients[1] * lambertValue ;
+                color.Normalize();
+                color = color + pl.color * this->coEfficients[2] * phongValue;
+                color.Normalize();
+            }
+        }
+        
+        for(SpotLight sl: spotLights){
+            Points L = sl.direction;
+            double t;
+            L = Normalize(L);
+            Points li = intersectionPoint - sl.pl.position;
+            li = Normalize(li);
+
+            double angle = (acos(L*li))*(180/3.1416);
+
+            if(angle>=sl.angle) continue;
+
+            L = sl.pl.position - intersectionPoint;
+            L = Normalize(L);
+            Points lRayStart = intersectionPoint + L*0.0001;
+            Ray lRay(lRayStart, L);
+
+            Color lColor;
+            double t_min_og = 999999;
+
+            for (Object* o: objects) {
+                t = o->intersect(lRay, lColor, 0);
+                if (t > 0 && t < t_min_og) {
+                    t_min_og = t;
+                }
+            }
+                
+            if(t_min < t_min_og)
+            {
+                Points R = normal * (2 * (normal * L)) - L;
+                R = Normalize(R);
+
+                double lambertValue = max((normal*L), 0.0);
+                double phongValue = max(pow((R * r.dir), shine), 0.0);
+                
+                color = color + this->getColor(intersectionPoint) * sl.pl.color * this->coEfficients[1] * lambertValue ;
+                color.Normalize();
+                color = color + sl.pl.color * this->coEfficients[2] * phongValue;
+                color.Normalize();
+            }
+        }
+
+        if(level >= n_recursion) return t_min;
+
+        Points R = r.dir - normal * 2 * (normal * r.dir);
+        R = Normalize(R);
+        Ray reflectedRay(intersectionPoint + R*0.0001, R);
+        Color reflectedColor;
+        int nearest = -1;
+        double t_ref, t_min_ref = 999999;
+
+        for (int i = 0; i < objects.size(); i++) {
+            t_ref = objects[i]->intersect(reflectedRay, reflectedColor, 0);
+            if (t_ref > 0 && t_ref < t_min_ref) {
+                t_min_ref = t_ref;
+                nearest = i;
+            }
+        }
+
+        if (nearest != -1) {
+            t_min_ref = objects[nearest]->intersect(reflectedRay, reflectedColor, level + 1);
+            color = color + reflectedColor * coEfficients[3];
+            color.Normalize();
+        }
+
         return t_min;
     }
 
@@ -193,6 +342,7 @@ public:
     }
 
     Points getNormal(Points &p){
+        //Here p is the intersection point
         return Normalize(p - referencePoint);
     }
 
@@ -234,6 +384,7 @@ class Triangle: public Object{
     }
 
     Points getNormal(Points &p){
+        //Here p is the intersection point
         Points v1 = b - a;
         Points v2 = c - a;
         return Normalize(v1|v2);
@@ -291,6 +442,7 @@ public:
     }
 
     Points getNormal(Points &p) override{
+        //Here p is the intersection point
         return Points(0, 0, 1);
     }
 
@@ -318,7 +470,7 @@ public:
    // General is for Quadratic Surfaces
    double A, B, C, D, E, F, G, H, I, J;
    General(){};
-   General(double A, double B, double C, double D, double E, double F, double G, double H, double I, double J, Points referencePoint, double height, double width, double length){
+   General(double A, double B, double C, double D, double E, double F, double G, double H, double I, double J, Points referencePoint, double length, double width, double height){
        this->A = A;
        this->B = B;
        this->C = C;
@@ -339,37 +491,38 @@ public:
          // cout << "Drawing General\n";
     }
 
-};
-
-class PointLight{
-public:
-    Points position;
-    Color color;
-    void draw(){
-        glPushMatrix();
-        glTranslated(position.x, position.y, position.z);
-        glColor3f(color.r, color.g, color.b);
-        glutSolidSphere(1, 100, 100);
-        glPopMatrix();
+    bool isWithinRange(Points point)
+    {
+        if (point.x >= referencePoint.x && point.x <= referencePoint.x + width && point.y >= referencePoint.y && point.y <= referencePoint.y + height && point.z >= referencePoint.z && point.z <= referencePoint.z + length)
+            return true;
+        return false;
     }
-};
 
-class SpotLight{
-public:
-    PointLight pl;
-    Points direction;
-    double angle;
-    void draw(){
-        glPushMatrix();
-        glTranslated(pl.position.x, pl.position.y, pl.position.z);
-        glColor3f(pl.color.r, pl.color.g, pl.color.b);
-        glutSolidSphere(0.5, 100, 100);
-        glPopMatrix();
-
+    Points getNormal(Points &p) override{
+        //Here p is the intersection point
+        double x = 2*A*p.x + D*p.y + E*p.z + G;
+        double y = 2*B*p.y + D*p.x + F*p.z + H;
+        double z = 2*C*p.z + E*p.x + F*p.y + I;
+        return Normalize(Points(x, y, z));
     }
+
+    double getTminimum(Ray &ray){
+        double a = A*ray.dir.x*ray.dir.x + B*ray.dir.y*ray.dir.y + C*ray.dir.z*ray.dir.z + D*ray.dir.x*ray.dir.y + E*ray.dir.x*ray.dir.z + F*ray.dir.y*ray.dir.z;
+        double b = 2*A*ray.start.x*ray.dir.x + 2*B*ray.start.y*ray.dir.y + 2*C*ray.start.z*ray.dir.z + D*ray.start.x*ray.dir.y + E*ray.start.x*ray.dir.z + F*ray.start.y*ray.dir.z + G*ray.dir.x + H*ray.dir.y + I*ray.dir.z;
+        double c = A*ray.start.x*ray.start.x + B*ray.start.y*ray.start.y + C*ray.start.z*ray.start.z + D*ray.start.x*ray.start.y + E*ray.start.x*ray.start.z + F*ray.start.y*ray.start.z + G*ray.start.x + H*ray.start.y + I*ray.start.z + J;
+        double d = b*b - 4*a*c;
+        if(d<0) return -1;
+        double t1 = (-b + sqrt(d))/(2.0*a);
+        double t2 = (-b - sqrt(d))/(2.0*a);
+        Points p1 = ray.start + ray.dir*t1;
+        Points p2 = ray.start + ray.dir*t2;
+        if(t1<0 && t2<0) return -1;
+        if(t1<0 && isWithinRange(p2)) return t2;
+        if(t2<0 && isWithinRange(p1)) return t1;
+        return min(t1, t2);
+    }
+
 };
 
 
-extern vector<PointLight> pointLights;
-extern vector<SpotLight> spotLights;
-extern vector<Object*> objects;
+
